@@ -1,0 +1,154 @@
+import re
+import math
+import time
+import getpass
+
+# ─────────────────────────────────────────
+#  Renkler
+# ─────────────────────────────────────────
+class Renk:
+    SIFIR    = "\033[0m"
+    KALIN    = "\033[1m"
+    KIRMIZI  = "\033[91m"
+    SARI     = "\033[93m"
+    YESIL    = "\033[92m"
+    CAMGOBEK = "\033[96m"
+    GRI      = "\033[90m"
+    BEYAZ    = "\033[97m"
+
+# ─────────────────────────────────────────
+#  Süre biçimlendirici
+# ─────────────────────────────────────────
+def sure_formatla(saniye: float) -> str:
+    if saniye < 1:
+        return "< 1 saniye"
+    if saniye < 60:
+        return f"{saniye:.1f} saniye"
+    if saniye < 3600:
+        return f"{saniye / 60:.1f} dakika"
+    if saniye < 86400:
+        return f"{saniye / 3600:.1f} saat"
+    if saniye < 31_536_000:
+        return f"{saniye / 86400:.1f} gün"
+    if saniye < 3.154e10:
+        return f"{saniye / 31_536_000:.1f} yıl"
+    if saniye < 3.154e13:
+        return f"{saniye / 3.154e10:.1f} bin yıl"
+    if saniye < 3.154e16:
+        return f"{saniye / 3.154e13:.1f} milyon yıl"
+    return "milyarlarca yıl"
+
+# ─────────────────────────────────────────
+#  Şifre analizi
+# ─────────────────────────────────────────
+def sifre_analizi(sifre: str) -> None:
+    kriterler = {
+        "8+ karakter":    len(sifre) >= 8,
+        "12+ karakter":   len(sifre) >= 12,
+        "Büyük harf":     bool(re.search(r"[A-Z]", sifre)),
+        "Küçük harf":     bool(re.search(r"[a-z]", sifre)),
+        "Rakam":          bool(re.search(r"[0-9]", sifre)),
+        "Özel karakter":  bool(re.search(r"[!@#$%^&*(),.?\":{}|<>_\-+=\[\]/\\~`';]", sifre)),
+    }
+
+    agirliklar = {
+        "8+ karakter":   18,
+        "12+ karakter":  10,
+        "Büyük harf":    18,
+        "Küçük harf":    18,
+        "Rakam":         18,
+        "Özel karakter": 18,
+    }
+
+    skor = sum(agirliklar[k] for k, v in kriterler.items() if v)
+    skor = min(skor, 100)
+
+    # Skor etiket ve rengi
+    if skor < 40:
+        etiket, renk = "ÇOK ZAYIF", Renk.KIRMIZI
+    elif skor < 70:
+        etiket, renk = "ORTA",      Renk.SARI
+    elif skor < 100:
+        etiket, renk = "GÜÇLÜ",     Renk.YESIL
+    else:
+        etiket, renk = "MÜKEMMEL",  Renk.CAMGOBEK
+
+    # Güç çubuğu
+    dolu  = int(skor / 5)
+    bos   = 20 - dolu
+    cubuk = f"{renk}{'█' * dolu}{Renk.GRI}{'░' * bos}{Renk.SIFIR}"
+
+    print()
+    print(f"{Renk.KALIN}{Renk.BEYAZ}{'─' * 44}{Renk.SIFIR}")
+    print(f"  {Renk.KALIN}SİBER GÜVENLİK PANELİ{Renk.SIFIR}")
+    print(f"{'─' * 44}")
+    print(f"  Güç Skoru : {renk}{Renk.KALIN}%{skor}{Renk.SIFIR}  [{etiket}]")
+    print(f"  {cubuk}")
+    print(f"{'─' * 44}")
+
+    for kriter, durum in kriterler.items():
+        isaret = f"{Renk.YESIL}✔{Renk.SIFIR}" if durum else f"{Renk.KIRMIZI}✘{Renk.SIFIR}"
+        print(f"  {isaret}  {kriter}")
+
+    print(f"{'─' * 44}")
+
+    # Yorum
+    if skor < 40:
+        print(f"  {Renk.KIRMIZI}⚠  Bu şifre siber saldırıya karşı çok savunmasız!{Renk.SIFIR}")
+    elif skor < 70:
+        print(f"  {Renk.SARI}→  Daha fazla çeşitlilik ekleyerek güçlendir.{Renk.SIFIR}")
+    elif skor < 100:
+        print(f"  {Renk.YESIL}✔  İyi bir şifre! Küçük iyileştirmelerle mükemmel olur.{Renk.SIFIR}")
+    else:
+        print(f"  {Renk.CAMGOBEK}★  Bu şifre bir kale gibi! Tam puan.{Renk.SIFIR}")
+
+    print(f"{'─' * 44}\n")
+
+# ─────────────────────────────────────────
+#  Kaba kuvvet simülasyonu
+# ─────────────────────────────────────────
+def kaba_kuvvet_simulasyonu(sifre: str) -> None:
+    # Karakter seti büyüklüğünü hesapla
+    charset = 0
+    if re.search(r"[a-z]", sifre): charset += 26
+    if re.search(r"[A-Z]", sifre): charset += 26
+    if re.search(r"[0-9]", sifre): charset += 10
+    if re.search(r"[^a-zA-Z0-9]", sifre): charset += 32
+
+    kombinasyon = charset ** len(sifre) if charset else 1
+    saniyede_deneme = 1_000_000_000  # 1 milyar/sn
+    tahmini_saniye  = kombinasyon / saniyede_deneme
+    sure_str        = sure_formatla(tahmini_saniye)
+
+    print(f"{'─' * 44}")
+    print(f"  {Renk.KALIN}KABA KUVVET TAHMİNİ{Renk.SIFIR}  {Renk.GRI}(1 milyar deneme/sn){Renk.SIFIR}")
+    print(f"{'─' * 44}")
+    print(f"  Karakter seti   : {charset} sembol")
+    print(f"  Kombinasyon     : {kombinasyon:,.0f}")
+    print(f"  Tahmini süre    : {Renk.KALIN}{sure_str}{Renk.SIFIR}")
+    print(f"{'─' * 44}\n")
+
+# ─────────────────────────────────────────
+#  Ana program
+# ─────────────────────────────────────────
+def main() -> None:
+    print(f"\n{Renk.KALIN}{Renk.CAMGOBEK}  ══ SİBER GÜVENLİK PANELİNE HOŞ GELDİN ══{Renk.SIFIR}\n")
+
+    try:
+        sifre = getpass.getpass("  Şifreyi gir (gizli): ")
+    except (KeyboardInterrupt, EOFError):
+        print(f"\n{Renk.GRI}  İptal edildi.{Renk.SIFIR}\n")
+        return
+
+    if not sifre:
+        print(f"\n{Renk.KIRMIZI}  Şifre boş olamaz!{Renk.SIFIR}\n")
+        return
+
+    print(f"\n{Renk.GRI}  Analiz ediliyor...{Renk.SIFIR}")
+    time.sleep(0.5)
+
+    sifre_analizi(sifre)
+    kaba_kuvvet_simulasyonu(sifre)
+
+if __name__ == "__main__":
+    main()
