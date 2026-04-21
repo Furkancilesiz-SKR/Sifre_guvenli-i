@@ -1,154 +1,246 @@
-import re
-import math
-import time
-import getpass
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalkan | Siber Güvenlik Paneli</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --text-color: #c9d1d9;
+            --accent-cyan: #00f2ff;
+            --accent-green: #238636;
+            --accent-yellow: #d29922;
+            --accent-red: #da3633;
+            --gray: #8b949e;
+        }
 
-# ─────────────────────────────────────────
-#  Renkler
-# ─────────────────────────────────────────
-class Renk:
-    SIFIR    = "\033[0m"
-    KALIN    = "\033[1m"
-    KIRMIZI  = "\033[91m"
-    SARI     = "\033[93m"
-    YESIL    = "\033[92m"
-    CAMGOBEK = "\033[96m"
-    GRI      = "\033[90m"
-    BEYAZ    = "\033[97m"
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
 
-# ─────────────────────────────────────────
-#  Süre biçimlendirici
-# ─────────────────────────────────────────
-def sure_formatla(saniye: float) -> str:
-    if saniye < 1:
-        return "< 1 saniye"
-    if saniye < 60:
-        return f"{saniye:.1f} saniye"
-    if saniye < 3600:
-        return f"{saniye / 60:.1f} dakika"
-    if saniye < 86400:
-        return f"{saniye / 3600:.1f} saat"
-    if saniye < 31_536_000:
-        return f"{saniye / 86400:.1f} gün"
-    if saniye < 3.154e10:
-        return f"{saniye / 31_536_000:.1f} yıl"
-    if saniye < 3.154e13:
-        return f"{saniye / 3.154e10:.1f} bin yıl"
-    if saniye < 3.154e16:
-        return f"{saniye / 3.154e13:.1f} milyon yıl"
-    return "milyarlarca yıl"
+        .container {
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 500px;
+            border: 1px solid #30363d;
+        }
 
-# ─────────────────────────────────────────
-#  Şifre analizi
-# ─────────────────────────────────────────
-def sifre_analizi(sifre: str) -> None:
-    kriterler = {
-        "8+ karakter":    len(sifre) >= 8,
-        "12+ karakter":   len(sifre) >= 12,
-        "Büyük harf":     bool(re.search(r"[A-Z]", sifre)),
-        "Küçük harf":     bool(re.search(r"[a-z]", sifre)),
-        "Rakam":          bool(re.search(r"[0-9]", sifre)),
-        "Özel karakter":  bool(re.search(r"[!@#$%^&*(),.?\":{}|<>_\-+=\[\]/\\~`';]", sifre)),
+        h1 {
+            text-align: center;
+            color: var(--accent-cyan);
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            background: #010409;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: white;
+            font-size: 1rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            border-color: var(--accent-cyan);
+        }
+
+        /* Güç Barı */
+        .progress-container {
+            height: 10px;
+            background: #30363d;
+            border-radius: 5px;
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+
+        #progress-bar {
+            height: 100%;
+            width: 0%;
+            transition: width 0.4s, background-color 0.4s;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .check-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--gray);
+        }
+
+        .check-item.valid {
+            color: var(--accent-green);
+        }
+
+        .result-box {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: #010409;
+            border-radius: 6px;
+            border-left: 4px solid var(--gray);
+        }
+
+        .brute-force {
+            font-size: 0.85rem;
+            color: var(--gray);
+            margin-top: 1rem;
+            text-align: center;
+            border-top: 1px solid #30363d;
+            padding-top: 1rem;
+        }
+
+        #time-result {
+            color: var(--accent-cyan);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🛡️ KALKAN ANALYZER</h1>
+    
+    <div class="input-group">
+        <input type="password" id="passwordInput" placeholder="Analiz edilecek şifreyi giriniz..." autocomplete="off">
+    </div>
+
+    <div id="score-text" style="font-weight: bold; text-align: center;">Skor: %0</div>
+    <div class="progress-container">
+        <div id="progress-bar"></div>
+    </div>
+
+    <div class="stats" id="checklist">
+        <div class="check-item" data-rule="len8">✘ 8+ Karakter</div>
+        <div class="check-item" data-rule="len12">✘ 12+ Karakter</div>
+        <div class="check-item" data-rule="upper">✘ Büyük Harf</div>
+        <div class="check-item" data-rule="lower">✘ Küçük Harf</div>
+        <div class="check-item" data-rule="number">✘ Rakam</div>
+        <div class="check-item" data-rule="special">✘ Özel Karakter</div>
+    </div>
+
+    <div class="result-box" id="feedback">
+        Şifre bekleniyor...
+    </div>
+
+    <div class="brute-force">
+        Tahmini Kırılma Süresi: <span id="time-result">-</span><br>
+        <small>(1 Milyar Deneme / Saniye)</small>
+    </div>
+</div>
+
+<script>
+    const input = document.getElementById('passwordInput');
+    const bar = document.getElementById('progress-bar');
+    const scoreText = document.getElementById('score-text');
+    const feedback = document.getElementById('feedback');
+    const timeResult = document.getElementById('time-result');
+
+    input.addEventListener('input', () => {
+        const val = input.value;
+        let score = 0;
+        let charset = 0;
+
+        const rules = {
+            len8: val.length >= 8,
+            len12: val.length >= 12,
+            upper: /[A-Z]/.test(val),
+            lower: /[a-z]/.test(val),
+            number: /[0-9]/.test(val),
+            special: /[!@#$%^&*(),.?":{}|<>_\-+=\[\]/\\~`';]/.test(val)
+        };
+
+        // Skor Hesaplama (Python ağırlıklarıyla aynı)
+        if (rules.len8) score += 18;
+        if (rules.len12) score += 10;
+        if (rules.upper) { score += 18; charset += 26; }
+        if (rules.lower) { score += 18; charset += 26; }
+        if (rules.number) { score += 18; charset += 10; }
+        if (rules.special) { score += 18; charset += 32; }
+
+        score = Math.min(score, 100);
+
+        // Arayüz Güncelleme
+        updateUI(score, rules, val.length, charset);
+    });
+
+    function updateUI(score, rules, length, charset) {
+        // Bar genişliği ve rengi
+        bar.style.width = score + "%";
+        let color = '#da3633';
+        let label = 'ÇOK ZAYIF';
+
+        if (score >= 40) { color = '#d29922'; label = 'ORTA'; }
+        if (score >= 70) { color = '#238636'; label = 'GÜÇLÜ'; }
+        if (score >= 100) { color = '#00f2ff'; label = 'MÜKEMMEL'; }
+
+        bar.style.backgroundColor = color;
+        scoreText.style.color = color;
+        scoreText.innerText = `Skor: %${score} [${label}]`;
+
+        // Checklist güncelleme
+        Object.keys(rules).forEach(rule => {
+            const el = document.querySelector(`[data-rule="${rule}"]`);
+            if (rules[rule]) {
+                el.classList.add('valid');
+                el.innerText = '✔ ' + el.innerText.substring(2);
+            } else {
+                el.classList.remove('valid');
+                el.innerText = '✘ ' + el.innerText.substring(2);
+            }
+        });
+
+        // Brute Force Hesaplama
+        if (length > 0) {
+            const combinations = Math.pow(charset || 1, length);
+            const seconds = combinations / 1000000000;
+            timeResult.innerText = formatTime(seconds);
+            feedback.innerText = score < 60 ? "⚠ Bu şifre siber saldırılara karşı savunmasız!" : "✔ Şifreniz güvenli görünüyor.";
+            feedback.style.borderLeftColor = color;
+        } else {
+            timeResult.innerText = "-";
+            feedback.innerText = "Şifre bekleniyor...";
+        }
     }
 
-    agirliklar = {
-        "8+ karakter":   18,
-        "12+ karakter":  10,
-        "Büyük harf":    18,
-        "Küçük harf":    18,
-        "Rakam":         18,
-        "Özel karakter": 18,
+    function formatTime(seconds) {
+        if (seconds < 1) return "< 1 saniye";
+        if (seconds < 60) return seconds.toFixed(1) + " saniye";
+        if (seconds < 3600) return (seconds / 60).toFixed(1) + " dakika";
+        if (seconds < 86400) return (seconds / 3600).toFixed(1) + " saat";
+        if (seconds < 31536000) return (seconds / 86400).toFixed(1) + " gün";
+        if (seconds < 31536000000) return (seconds / 31536000).toFixed(1) + " yıl";
+        return "Milyarlarca yıl";
     }
+</script>
 
-    skor = sum(agirliklar[k] for k, v in kriterler.items() if v)
-    skor = min(skor, 100)
-
-    # Skor etiket ve rengi
-    if skor < 40:
-        etiket, renk = "ÇOK ZAYIF", Renk.KIRMIZI
-    elif skor < 70:
-        etiket, renk = "ORTA",      Renk.SARI
-    elif skor < 100:
-        etiket, renk = "GÜÇLÜ",     Renk.YESIL
-    else:
-        etiket, renk = "MÜKEMMEL",  Renk.CAMGOBEK
-
-    # Güç çubuğu
-    dolu  = int(skor / 5)
-    bos   = 20 - dolu
-    cubuk = f"{renk}{'█' * dolu}{Renk.GRI}{'░' * bos}{Renk.SIFIR}"
-
-    print()
-    print(f"{Renk.KALIN}{Renk.BEYAZ}{'─' * 44}{Renk.SIFIR}")
-    print(f"  {Renk.KALIN}SİBER GÜVENLİK PANELİ{Renk.SIFIR}")
-    print(f"{'─' * 44}")
-    print(f"  Güç Skoru : {renk}{Renk.KALIN}%{skor}{Renk.SIFIR}  [{etiket}]")
-    print(f"  {cubuk}")
-    print(f"{'─' * 44}")
-
-    for kriter, durum in kriterler.items():
-        isaret = f"{Renk.YESIL}✔{Renk.SIFIR}" if durum else f"{Renk.KIRMIZI}✘{Renk.SIFIR}"
-        print(f"  {isaret}  {kriter}")
-
-    print(f"{'─' * 44}")
-
-    # Yorum
-    if skor < 40:
-        print(f"  {Renk.KIRMIZI}⚠  Bu şifre siber saldırıya karşı çok savunmasız!{Renk.SIFIR}")
-    elif skor < 70:
-        print(f"  {Renk.SARI}→  Daha fazla çeşitlilik ekleyerek güçlendir.{Renk.SIFIR}")
-    elif skor < 100:
-        print(f"  {Renk.YESIL}✔  İyi bir şifre! Küçük iyileştirmelerle mükemmel olur.{Renk.SIFIR}")
-    else:
-        print(f"  {Renk.CAMGOBEK}★  Bu şifre bir kale gibi! Tam puan.{Renk.SIFIR}")
-
-    print(f"{'─' * 44}\n")
-
-# ─────────────────────────────────────────
-#  Kaba kuvvet simülasyonu
-# ─────────────────────────────────────────
-def kaba_kuvvet_simulasyonu(sifre: str) -> None:
-    # Karakter seti büyüklüğünü hesapla
-    charset = 0
-    if re.search(r"[a-z]", sifre): charset += 26
-    if re.search(r"[A-Z]", sifre): charset += 26
-    if re.search(r"[0-9]", sifre): charset += 10
-    if re.search(r"[^a-zA-Z0-9]", sifre): charset += 32
-
-    kombinasyon = charset ** len(sifre) if charset else 1
-    saniyede_deneme = 1_000_000_000  # 1 milyar/sn
-    tahmini_saniye  = kombinasyon / saniyede_deneme
-    sure_str        = sure_formatla(tahmini_saniye)
-
-    print(f"{'─' * 44}")
-    print(f"  {Renk.KALIN}KABA KUVVET TAHMİNİ{Renk.SIFIR}  {Renk.GRI}(1 milyar deneme/sn){Renk.SIFIR}")
-    print(f"{'─' * 44}")
-    print(f"  Karakter seti   : {charset} sembol")
-    print(f"  Kombinasyon     : {kombinasyon:,.0f}")
-    print(f"  Tahmini süre    : {Renk.KALIN}{sure_str}{Renk.SIFIR}")
-    print(f"{'─' * 44}\n")
-
-# ─────────────────────────────────────────
-#  Ana program
-# ─────────────────────────────────────────
-def main() -> None:
-    print(f"\n{Renk.KALIN}{Renk.CAMGOBEK}  ══ SİBER GÜVENLİK PANELİNE HOŞ GELDİN ══{Renk.SIFIR}\n")
-
-    try:
-        sifre = getpass.getpass("  Şifreyi gir (gizli): ")
-    except (KeyboardInterrupt, EOFError):
-        print(f"\n{Renk.GRI}  İptal edildi.{Renk.SIFIR}\n")
-        return
-
-    if not sifre:
-        print(f"\n{Renk.KIRMIZI}  Şifre boş olamaz!{Renk.SIFIR}\n")
-        return
-
-    print(f"\n{Renk.GRI}  Analiz ediliyor...{Renk.SIFIR}")
-    time.sleep(0.5)
-
-    sifre_analizi(sifre)
-    kaba_kuvvet_simulasyonu(sifre)
-
-if __name__ == "__main__":
-    main()
+</body>
+</html>
